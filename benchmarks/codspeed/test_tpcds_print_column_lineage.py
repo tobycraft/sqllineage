@@ -10,6 +10,7 @@ import io
 import os
 import re
 
+from sqllineage.config import SQLLineageConfig
 from sqllineage.runner import LineageRunner
 
 TPCDS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tpcds")
@@ -42,5 +43,16 @@ def test_tpcds_print_column_lineage(benchmark):
     def run():
         with contextlib.redirect_stdout(io.StringIO()):
             LineageRunner(COMBINED_SQL, dialect="ansi").print_column_lineage()
+
+    benchmark(run)
+
+
+def test_tpcds_print_column_lineage_rustworkx(benchmark):
+    def run():
+        with SQLLineageConfig(
+            GRAPH_OPERATOR_CLASS="sqllineage.core.graph.rustworkx.RustworkXGraphOperator"
+        ):
+            with contextlib.redirect_stdout(io.StringIO()):
+                LineageRunner(COMBINED_SQL, dialect="ansi").print_column_lineage()
 
     benchmark(run)
