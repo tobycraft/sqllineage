@@ -13,6 +13,13 @@ jobs:
     # requires CodSpeed Macro Runners: GitHub org account with CodSpeed
     # enabled for this repository (see https://codspeed.io/docs/features/macro-runners)
     runs-on: codspeed-macro
+    strategy:
+      matrix:
+        include:
+          - backend: networkx
+            test_filter: "test_tpcds_print_column_lineage and not rustworkx"
+          - backend: rustworkx
+            test_filter: "test_tpcds_print_column_lineage_rustworkx"
     steps:
       - name: Checkout sqllineage under test
         uses: actions/checkout@v6
@@ -27,9 +34,9 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: uv sync --project codspeed-harness --extra codspeed --no-install-project
-      - name: Run benchmark (walltime)
+      - name: Run benchmark (walltime, ${{ matrix.backend }})
         uses: CodSpeedHQ/action@v4
         with:
           mode: walltime
           token: ${{ secrets.CODSPEED_TOKEN }}
-          run: PYTHONPATH=. uv run --project codspeed-harness --no-sync pytest codspeed-harness/benchmarks/codspeed --codspeed
+          run: PYTHONPATH=. uv run --project codspeed-harness --no-sync pytest codspeed-harness/benchmarks/codspeed -k "${{ matrix.test_filter }}" --codspeed
