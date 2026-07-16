@@ -57,6 +57,9 @@ docs = [
     "Sphinx>=3.2.0",
     "sphinx_rtd_theme>=0.5.0",
 ]
+codspeed = [
+    "pytest-codspeed>=3.0.0",
+]
 
 [project.scripts]
 sqllineage = "sqllineage.cli:main"
@@ -76,6 +79,9 @@ path = "sqllineage/__init__.py"
 
 [tool.hatch.build.targets.wheel.hooks.custom]
 path = "hatch_build.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.tox]
 requires = ["tox>=4.19"]
