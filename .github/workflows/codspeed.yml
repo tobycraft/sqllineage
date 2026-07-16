@@ -12,50 +12,57 @@ jobs:
   simulation:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout benchmark harness
-        uses: actions/checkout@v6
+      # sqllineage under test is checked out at the workspace root (rather
+      # than the benchmark harness) so that its HEAD is what CodSpeed's
+      # commit-hash detection picks up: the runner reports results against
+      # the git commit found at the working directory of the benchmark
+      # step, which defaults to the workspace root
       - name: Checkout sqllineage under test
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.sha }}
-          path: sqllineage-under-test
+      - name: Checkout benchmark harness
+        uses: actions/checkout@v6
+        with:
+          path: codspeed-harness
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
       - name: Install dependencies
         # --no-install-project: only the third-party deps (sqlfluff,
         # networkx, pytest-codspeed, ...) come from the harness; the
-        # sqllineage package itself is imported straight from
-        # sqllineage-under-test via PYTHONPATH below, so the ref being
+        # sqllineage package itself is imported straight from the
+        # workspace root via PYTHONPATH below, so the ref being
         # benchmarked can predate benchmarks/codspeed entirely
-        run: uv sync --extra codspeed --no-install-project
+        run: uv sync --project codspeed-harness --extra codspeed --no-install-project
       - name: Run benchmark (CPU simulation)
         uses: CodSpeedHQ/action@v4
         with:
           mode: simulation
           token: ${{ secrets.CODSPEED_TOKEN }}
-          run: PYTHONPATH=sqllineage-under-test uv run --no-sync pytest benchmarks/codspeed --codspeed
+          run: PYTHONPATH=. uv run --project codspeed-harness --no-sync pytest codspeed-harness/benchmarks/codspeed --codspeed
 
   walltime:
     # requires CodSpeed Macro Runners: GitHub org account with CodSpeed
     # enabled for this repository (see https://codspeed.io/docs/features/macro-runners)
     runs-on: codspeed-macro
     steps:
-      - name: Checkout benchmark harness
-        uses: actions/checkout@v6
       - name: Checkout sqllineage under test
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.sha }}
-          path: sqllineage-under-test
+      - name: Checkout benchmark harness
+        uses: actions/checkout@v6
+        with:
+          path: codspeed-harness
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --extra codspeed --no-install-project
+        run: uv sync --project codspeed-harness --extra codspeed --no-install-project
       - name: Run benchmark (walltime)
         uses: CodSpeedHQ/action@v4
         with:
           mode: walltime
           token: ${{ secrets.CODSPEED_TOKEN }}
-          run: PYTHONPATH=sqllineage-under-test uv run --no-sync pytest benchmarks/codspeed --codspeed
+          run: PYTHONPATH=. uv run --project codspeed-harness --no-sync pytest codspeed-harness/benchmarks/codspeed --codspeed
