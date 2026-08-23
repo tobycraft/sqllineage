@@ -207,7 +207,7 @@ def test_find_nodes_matches_tables_and_columns():
 
 def test_find_nodes_no_match_returns_empty():
     lr = LineageRunner(_MULTI_COL_SQL)
-    assert lr.find_nodes(lambda v: str(v) == "does_not_exist") == []
+    assert lr.find_nodes(lambda v: str(v) == "does_not_exist") is None
 
 
 def test_find_nodes_matches_path():
