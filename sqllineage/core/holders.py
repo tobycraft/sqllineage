@@ -84,8 +84,8 @@ class ColumnLineageMixin:
         return columns
 
     def find_nodes(
-        self, predicate: Callable[[Column | Table | Path], bool] | None = None
-    ) -> list[Column | Table | Path]:
+        self, predicate: Callable[[Column | Table | Path], bool]
+    ) -> list[Column | Table | Path] | None:
         """
         Return every Column/Table/Path vertex in the graph for which
         ``predicate(vertex)`` is true. To discover a candidate for
@@ -99,7 +99,7 @@ class ColumnLineageMixin:
             if predicate is not None
             and isinstance(v, (Column, *DATASET_CLASSES))
             and predicate(v)
-        ]
+        ] or None
 
 
 class SubQueryLineageHolder(ColumnLineageMixin):

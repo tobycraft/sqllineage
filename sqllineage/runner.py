@@ -157,8 +157,8 @@ Target Tables:
 
     @lazy_method
     def find_nodes(
-        self, predicate: Callable[[Column | Table | Path], bool] | None = None
-    ) -> list[Column | Table | Path]:
+        self, predicate: Callable[[Column | Table | Path], bool]
+    ) -> list[Column | Table | Path] | None:
         """
         a list of :class:`sqllineage.models.Column`/:class:`sqllineage.models.Table`/
         :class:`sqllineage.models.Path` for which ``predicate`` is true. To discover
