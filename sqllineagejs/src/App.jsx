@@ -73,12 +73,6 @@ export default function App() {
   );
   const isResizing = React.useRef(false);
 
-  // Reserve space for the fixed AppBar (marginTop: theme.spacing(6) = 48px),
-  // the main box padding (theme.spacing(0.5) = 4px top/bottom), and the
-  // view-toggle radio row below the paper (~42px), so the paper fills the
-  // remaining viewport instead of overflowing it (which caused a permanent
-  // vertical scrollbar on shorter windows).
-  const height = "calc(100vh - 98px)";
   const width = useMemo(() => {
     let full_width = 100;
     return (drawerOpen ? full_width - drawerWidth : full_width) + "vw";
@@ -252,6 +246,9 @@ export default function App() {
             left: drawerWidth + 0.6 + "vw",
           }}
         />
+        {/* The fixed AppBar (dense Toolbar) is 48px = theme.spacing(6); the
+            marginTop below and the calc(100vh - spacing(6)) height are
+            coupled to that value and must change together. */}
         <Box
           component="main"
           sx={(theme) => ({
@@ -259,20 +256,28 @@ export default function App() {
             marginTop: theme.spacing(6),
             float: "right",
             marginLeft: drawerOpen ? drawerWidth + "vw" : theme.spacing(0),
+            display: "flex",
+            flexDirection: "column",
+            height: `calc(100vh - ${theme.spacing(6)})`,
+            boxSizing: "border-box",
           })}
         >
-          <Paper elevation="24" style={{ height: height, width: width }}>
-            <Box sx={viewSelected === "dag" ? {} : { display: "none" }}>
-              <DAG height={height} width={width} />
+          <Paper
+            elevation="24"
+            sx={{ flexGrow: 1, minHeight: "240px" }}
+            style={{ width: width }}
+          >
+            <Box sx={viewSelected === "dag" ? { height: "100%" } : { display: "none" }}>
+              <DAG height="100%" width={width} />
             </Box>
-            <Box sx={viewSelected === "text" ? {} : { display: "none" }}>
-              <DAGDesc height={height} width={width} />
+            <Box sx={viewSelected === "text" ? { height: "100%" } : { display: "none" }}>
+              <DAGDesc height="100%" width={width} />
             </Box>
-            <Box sx={viewSelected === "script" ? {} : { display: "none" }}>
-              <Editor height={height} width={width} dialect={dialectSelected} />
+            <Box sx={viewSelected === "script" ? { height: "100%" } : { display: "none" }}>
+              <Editor height="100%" width={width} dialect={dialectSelected} />
             </Box>
           </Paper>
-          <Grid container sx={{ justifyContent: "center" }}>
+          <Grid container sx={{ justifyContent: "center", flexShrink: 0 }}>
             <FormControl variant="standard" component="fieldset">
               <RadioGroup
                 row
