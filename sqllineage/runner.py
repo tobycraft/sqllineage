@@ -177,6 +177,9 @@ Target Tables:
         """
         a list of column tuple :class:`sqllineage.models.Column`
 
+        :param exclude_path_ending_in_subquery:  exclude_subquery rename to exclude_path_ending_in_subquery
+               exclude column from SubQuery in the ending path
+        :param exclude_subquery_columns: exclude column from SubQuery in the path.
         :param node: restrict the result to paths that touch this column. Use
                :meth:`find_nodes` to discover a candidate, filtering its
                result to :class:`sqllineage.models.Column` instances first,
