@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   AppBar,
   Box,
@@ -34,8 +34,6 @@ import { DAG } from "./features/editor/DAG";
 import { selectEditor } from "./features/editor/editorSlice";
 import { BASE_URL } from "./config.js";
 
-let isResizing = null;
-
 const dialects = {
   sqlfluff: [
     "ansi",
@@ -70,9 +68,11 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = React.useState(true);
   const [drawerWidth, setDrawerWidth] = React.useState(18);
   const [dialectMenuAnchor, setDialectMenuAnchor] = React.useState(null);
-  const [dialectSelected, setDialectSelected] = React.useState("ansi");
+  const [dialectSelected, setDialectSelected] = React.useState(
+    () => localStorage.getItem("dialect") ?? "ansi",
+  );
+  const isResizing = React.useRef(false);
 
-  const height = "90vh";
   const width = useMemo(() => {
     let full_width = 100;
     return (drawerOpen ? full_width - drawerWidth : full_width) + "vw";
@@ -83,11 +83,11 @@ export default function App() {
     e.preventDefault();
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
-    isResizing = true;
+    isResizing.current = true;
   };
 
   const handleMouseMove = (e) => {
-    if (!isResizing) {
+    if (!isResizing.current) {
       return;
     }
     let width = (e.clientX * 100) / window.innerWidth;
@@ -99,10 +99,10 @@ export default function App() {
   };
 
   const handleMouseUp = () => {
-    if (!isResizing) {
+    if (!isResizing.current) {
       return;
     }
-    isResizing = false;
+    isResizing.current = false;
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
   };
@@ -115,13 +115,6 @@ export default function App() {
     }
     setDialectMenuAnchor(null);
   };
-
-  useEffect(() => {
-    let dialect = localStorage.getItem("dialect");
-    if (dialect !== null) {
-      setDialectSelected(dialect);
-    }
-  }, []);
 
   return (
     <BrowserRouter basename={BASE_URL}>
@@ -253,6 +246,9 @@ export default function App() {
             left: drawerWidth + 0.6 + "vw",
           }}
         />
+        {/* The fixed AppBar (dense Toolbar) is 48px = theme.spacing(6); the
+            marginTop below and the calc(100vh - spacing(6)) height are
+            coupled to that value and must change together. */}
         <Box
           component="main"
           sx={(theme) => ({
@@ -260,20 +256,28 @@ export default function App() {
             marginTop: theme.spacing(6),
             float: "right",
             marginLeft: drawerOpen ? drawerWidth + "vw" : theme.spacing(0),
+            display: "flex",
+            flexDirection: "column",
+            height: `calc(100vh - ${theme.spacing(6)})`,
+            boxSizing: "border-box",
           })}
         >
-          <Paper elevation="24" style={{ height: height, width: width }}>
-            <Box sx={viewSelected === "dag" ? {} : { display: "none" }}>
-              <DAG height={height} width={width} />
+          <Paper
+            elevation="24"
+            sx={{ flexGrow: 1, minHeight: "240px" }}
+            style={{ width: width }}
+          >
+            <Box sx={viewSelected === "dag" ? { height: "100%" } : { display: "none" }}>
+              <DAG height="100%" width={width} />
             </Box>
-            <Box sx={viewSelected === "text" ? {} : { display: "none" }}>
-              <DAGDesc height={height} width={width} />
+            <Box sx={viewSelected === "text" ? { height: "100%" } : { display: "none" }}>
+              <DAGDesc height="100%" width={width} />
             </Box>
-            <Box sx={viewSelected === "script" ? {} : { display: "none" }}>
-              <Editor height={height} width={width} dialect={dialectSelected} />
+            <Box sx={viewSelected === "script" ? { height: "100%" } : { display: "none" }}>
+              <Editor height="100%" width={width} dialect={dialectSelected} />
             </Box>
           </Paper>
-          <Grid container justifyContent="center">
+          <Grid container sx={{ justifyContent: "center", flexShrink: 0 }}>
             <FormControl variant="standard" component="fieldset">
               <RadioGroup
                 row
