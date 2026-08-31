@@ -8,8 +8,9 @@ from sqllineage.config import SQLLineageConfig
 from sqllineage.core.models import Column, Path, SubQuery, Table
 from sqllineage.runner import LineageRunner
 from sqllineage.utils.constant import LineageLevel
+from sqllineage.utils.entities import ColumnQualifierTuple
 
-from ..helpers import _gen_graph_operators, assert_table_lineage_equal
+from ..helpers import _gen_graph_operators, assert_table_lineage_equal, build_column
 
 parametrize_graph_operator = pytest.mark.parametrize(
     "graph_operator", _gen_graph_operators(), ids=lambda go: go.rsplit(".", 1)[-1]
@@ -56,35 +57,26 @@ _SINGLE_COL_SQL = (
 )
 
 
-def _col(name: str, table: str) -> Column:
-    col = Column(name)
-    col.parent = Table(table)
-    return col
-
-
-def _naive_filter(all_paths, node):
-    """reference implementation: compute everything, keep paths touching node"""
-    return {path for path in all_paths if node in path}
-
-
 @parametrize_graph_operator
 def test_node_filter_matches_naive_filtering(graph_operator):
     with SQLLineageConfig(GRAPH_OPERATOR_CLASS=graph_operator):
         full = set(LineageRunner(_MULTI_COL_SQL).get_column_lineage())
         for node in [
-            _col("col1", "tab2"),
-            _col("col2", "tab2"),
-            _col("col2", "tab1"),
-            _col("col1", "tab3"),
+            build_column(ColumnQualifierTuple("col1", "tab2")),
+            build_column(ColumnQualifierTuple("col2", "tab2")),
+            build_column(ColumnQualifierTuple("col2", "tab1")),
+            build_column(ColumnQualifierTuple("col1", "tab3")),
         ]:
             filtered = set(LineageRunner(_MULTI_COL_SQL).get_column_lineage(node=node))
-            assert filtered == _naive_filter(full, node), node
+            # reference implementation: compute everything, keep paths touching node
+            naive_filtered = {path for path in full if node in path}
+            assert filtered == naive_filtered, node
 
 
 def test_node_filter_by_column_object():
     lr = LineageRunner(_MULTI_COL_SQL)
     lr._eval()
-    col = _col("col1", "tab2")
+    col = build_column(ColumnQualifierTuple("col1", "tab2"))
     result = lr.get_column_lineage(node=col)
     assert len(result) > 0
     assert all(col in path for path in result)
@@ -98,13 +90,25 @@ def test_node_filter_disambiguates_same_column_name_different_table():
         "insert into tab2 select col1 from tab1; insert into tab3 select col1 from tab1"
     )
     lr = LineageRunner(sql)
-    result = lr.get_column_lineage(node=_col("col1", "tab2"))
-    assert result == [(_col("col1", "tab1"), _col("col1", "tab2"))]
+    result = lr.get_column_lineage(
+        node=build_column(ColumnQualifierTuple("col1", "tab2"))
+    )
+    assert result == [
+        (
+            build_column(ColumnQualifierTuple("col1", "tab1")),
+            build_column(ColumnQualifierTuple("col1", "tab2")),
+        )
+    ]
 
 
 def test_node_filter_no_match_returns_empty():
     lr = LineageRunner(_SINGLE_COL_SQL)
-    assert lr.get_column_lineage(node=_col("does_not_exist", "tab2")) == []
+    assert (
+        lr.get_column_lineage(
+            node=build_column(ColumnQualifierTuple("does_not_exist", "tab2"))
+        )
+        == []
+    )
 
 
 def test_node_filter_rejects_non_column():
@@ -124,7 +128,9 @@ def test_node_filter_cone_with_no_reachable_target_returns_empty():
     # path to a real table target once subquery-ending paths are pruned
     sql = "insert into ta select b from (select b, c from tb) sub"
     lr = LineageRunner(sql)
-    assert lr.get_column_lineage(node=_col("c", "tb")) == []
+    assert (
+        lr.get_column_lineage(node=build_column(ColumnQualifierTuple("c", "tb"))) == []
+    )
 
 
 def test_node_filter_exclude_subquery_columns_drops_collapsed_path():
@@ -133,26 +139,29 @@ def test_node_filter_exclude_subquery_columns_drops_collapsed_path():
     sql = "insert into ta select b from (select 1 as b) sub"
     lr = LineageRunner(sql)
     assert (
-        lr.get_column_lineage(node=_col("b", "ta"), exclude_subquery_columns=True) == []
+        lr.get_column_lineage(
+            node=build_column(ColumnQualifierTuple("b", "ta")),
+            exclude_subquery_columns=True,
+        )
+        == []
     )
 
 
 @parametrize_graph_operator
 def test_node_filter_cone_path_is_simple_across_cycle(graph_operator):
     # tabX -> tabSeed -> tabX forms a two-table cycle around the seed node;
-    # every path returned for get_column_lineage(node=...) must still be a
-    # simple path (no repeated column), just like the unfiltered result.
+    # any tab0-to-tabY path through the seed would have to repeat tabX.col1,
+    # so no simple path exists and get_column_lineage(node=...) must return
+    # none, rather than a path with a repeated column.
     sql = (
         "insert into tabX select col1 from tab0; "
         "insert into tabSeed select col1 from tabX; "
         "insert into tabX select col1 from tabSeed; "
         "insert into tabY select col1 from tabX"
     )
-    seed = _col("col1", "tabSeed")
+    seed = build_column(ColumnQualifierTuple("col1", "tabSeed"))
     with SQLLineageConfig(GRAPH_OPERATOR_CLASS=graph_operator):
-        result = LineageRunner(sql).get_column_lineage(node=seed)
-        for path in result:
-            assert len(path) == len(set(path)), path
+        assert LineageRunner(sql).get_column_lineage(node=seed) == []
 
 
 def test_get_column_lineage_deterministic_order_for_tied_endpoints():
@@ -207,7 +216,7 @@ def test_find_nodes_matches_tables_and_columns():
 
 def test_find_nodes_no_match_returns_empty():
     lr = LineageRunner(_MULTI_COL_SQL)
-    assert lr.find_nodes(lambda v: str(v) == "does_not_exist") is None
+    assert lr.find_nodes(lambda v: str(v) == "does_not_exist") == []
 
 
 def test_find_nodes_matches_path():
@@ -224,7 +233,7 @@ def test_column_selfloop_matches_across_graph_operators(graph_operator):
     # guards against. Asserting the same fixed expected value on every
     # backend is what makes them match each other.
     sql = "insert into tab1 select col1 from tab1"
-    seed = _col("col1", "tab1")
+    seed = build_column(ColumnQualifierTuple("col1", "tab1"))
     with SQLLineageConfig(GRAPH_OPERATOR_CLASS=graph_operator):
         assert set(LineageRunner(sql).get_column_lineage()) == {(seed, seed)}
 
@@ -234,7 +243,7 @@ def test_column_selfloop_via_node_filter_matches_across_graph_operators(
     graph_operator,
 ):
     sql = "insert into tab1 select col1 from tab1"
-    seed = _col("col1", "tab1")
+    seed = build_column(ColumnQualifierTuple("col1", "tab1"))
     with SQLLineageConfig(GRAPH_OPERATOR_CLASS=graph_operator):
         result = set(LineageRunner(sql).get_column_lineage(node=seed))
         assert result == {(seed, seed)}
@@ -245,11 +254,10 @@ def test_column_selfloop_with_downstream_target(graph_operator):
     # tab1.col1 self-loops, and also feeds tab2.col1; both the self-loop path
     # and the genuine downstream path must be present, on both backends.
     sql = (
-        "insert into tab1 select col1 from tab1; "
-        "insert into tab2 select col1 from tab1"
+        "insert into tab1 select col1 from tab1; insert into tab2 select col1 from tab1"
     )
-    seed = _col("col1", "tab1")
-    down = _col("col1", "tab2")
+    seed = build_column(ColumnQualifierTuple("col1", "tab1"))
+    down = build_column(ColumnQualifierTuple("col1", "tab2"))
     with SQLLineageConfig(GRAPH_OPERATOR_CLASS=graph_operator):
         result = set(LineageRunner(sql).get_column_lineage(node=seed))
         assert result == {(seed, seed), (seed, down)}

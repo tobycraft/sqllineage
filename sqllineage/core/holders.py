@@ -46,6 +46,8 @@ class ColumnLineageMixin:
             v for v in self.go.retrieve_vertices_by_props() if isinstance(v, Column)
         ]
         all_column_set = set(all_columns)
+        if node is not None and node not in all_column_set:
+            return set()
         column_graph = self.go.get_sub_graph(*all_columns)
         source_columns = column_graph.retrieve_source_vertices()
         target_columns = column_graph.retrieve_target_vertices()
@@ -68,8 +70,6 @@ class ColumnLineageMixin:
                 column_graph, source_column_set, target_column_set
             )
         else:
-            if node not in all_column_set:
-                return set()
             raw_paths = cone_lineage_paths(
                 column_graph, node, source_column_set, target_column_set
             )
@@ -85,7 +85,7 @@ class ColumnLineageMixin:
 
     def find_nodes(
         self, predicate: Callable[[Column | Table | Path], bool]
-    ) -> list[Column | Table | Path] | None:
+    ) -> list[Column | Table | Path]:
         """
         Return every Column/Table/Path vertex in the graph for which
         ``predicate(vertex)`` is true. To discover a candidate for
@@ -96,10 +96,8 @@ class ColumnLineageMixin:
         return [
             v
             for v in self.go.retrieve_vertices_by_props()
-            if predicate is not None
-            and isinstance(v, (Column, *DATASET_CLASSES))
-            and predicate(v)
-        ] or None
+            if isinstance(v, (Column, *DATASET_CLASSES)) and predicate(v)
+        ]
 
 
 class SubQueryLineageHolder(ColumnLineageMixin):

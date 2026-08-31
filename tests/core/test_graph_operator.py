@@ -69,3 +69,31 @@ def test_list_lineage_paths_same_vertex_without_self_loop_is_empty(
     go = graph_operator_class()
     go.add_vertex_if_not_exist("A")
     assert go.list_lineage_paths("A", "A") == []
+
+
+@parametrize_graph_operator_class
+def test_list_lineage_paths_cycle_through_seed_without_self_loop_is_empty(
+    graph_operator_class,
+):
+    """
+    A -> B -> C -> A is a cycle that revisits A, but has no A -> A edge.
+    list_lineage_paths("A", "A") must report no path, not the cycle itself,
+    since rustworkx's all_simple_paths (unlike networkx's) treats such a
+    cycle as a valid simple path from A back to A.
+    """
+    go = graph_operator_class()
+    for src, tgt in [("A", "B"), ("B", "C"), ("C", "A")]:
+        go.add_edge_if_not_exist(src, tgt, "label")
+    assert go.list_lineage_paths("A", "A") == []
+
+
+@parametrize_graph_operator_class
+def test_list_lineage_paths_cycle_through_seed_with_self_loop(graph_operator_class):
+    """
+    Same cycle as above, plus a real A -> A self-loop edge: the self-loop
+    itself is the only reported path, not the longer cycle through B and C.
+    """
+    go = graph_operator_class()
+    for src, tgt in [("A", "B"), ("B", "C"), ("C", "A"), ("A", "A")]:
+        go.add_edge_if_not_exist(src, tgt, "label")
+    assert go.list_lineage_paths("A", "A") == [["A", "A"]]

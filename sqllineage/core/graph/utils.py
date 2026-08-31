@@ -34,21 +34,26 @@ def cone_lineage_paths(
     if not true_sources or not true_targets:
         return []
 
-    up_graph = graph.get_sub_graph(*(ancestors | {seed}))
-    down_graph = graph.get_sub_graph(*(descendants | {seed}))
+    cone_graph = graph.get_sub_graph(*(ancestors | descendants | {seed}))
 
     # seed reaching itself directly (a real self-loop edge) is a complete path
     # on its own, not a "half" to be stitched together with anything else.
     self_paths = (
-        up_graph.list_lineage_paths(seed, seed)
+        cone_graph.list_lineage_paths(seed, seed)
         if seed in true_sources and seed in true_targets
         else []
     )
 
+    # Enumerating source-to-target paths directly over cone_graph would make
+    # all_simple_paths explore every source/target pair's full route through
+    # seed at once, an exponential blow-up in the number of routes on either
+    # side. Splitting at seed and enumerating each half separately, then
+    # stitching the halves together, keeps each all_simple_paths call scoped
+    # to one side of the cone.
     up_paths = [[seed]] if seed in true_sources else []
-    up_paths += list_lineage_paths_between(up_graph, true_sources - {seed}, {seed})
+    up_paths += list_lineage_paths_between(cone_graph, true_sources - {seed}, {seed})
     down_paths = [[seed]] if seed in true_targets else []
-    down_paths += list_lineage_paths_between(down_graph, {seed}, true_targets - {seed})
+    down_paths += list_lineage_paths_between(cone_graph, {seed}, true_targets - {seed})
     joined = [
         up + down[1:]
         for up in up_paths

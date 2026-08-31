@@ -33,8 +33,6 @@ def lazy_property(func):
 
 
 class LineageRunner:
-    _sql_holder: SQLLineageHolder  # For mypy attribute checking; set by _eval()
-
     def __init__(
         self,
         sql: str,
@@ -158,7 +156,7 @@ Target Tables:
     @lazy_method
     def find_nodes(
         self, predicate: Callable[[Column | Table | Path], bool]
-    ) -> list[Column | Table | Path] | None:
+    ) -> list[Column | Table | Path]:
         """
         a list of :class:`sqllineage.models.Column`/:class:`sqllineage.models.Table`/
         :class:`sqllineage.models.Path` for which ``predicate`` is true. To discover
@@ -213,7 +211,7 @@ Target Tables:
         """
         print(str(self))
 
-    def _eval(self):
+    def _eval(self) -> None:
         analyzer = (
             SqlParseLineageAnalyzer(self._sql)
             if self._dialect == SQLPARSE_DIALECT

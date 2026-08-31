@@ -226,12 +226,18 @@ class RustworkXGraphOperator(GraphOperator):
         for vertex in (src_vertex, tgt_vertex):
             if vertex not in self._vertex_to_index:
                 raise KeyError(f"vertex not found in graph: {vertex!r}")
+        src_idx = self._vertex_to_index[src_vertex]
+        tgt_idx = self._vertex_to_index[tgt_vertex]
+        if src_vertex == tgt_vertex:
+            # rx.all_simple_paths reports a cycle through src == tgt as one long
+            # path, e.g. [v2, v1, v5, v3, v4, v2], not just the self-loop edge;
+            # only report a path when a real self-loop edge is present, matching
+            # networkx's shape.
+            if self.graph.has_edge(src_idx, src_idx):
+                return [[src_vertex, src_vertex]]
+            return []
         result = []
-        for path in rx.all_simple_paths(
-            self.graph,
-            self._vertex_to_index[src_vertex],
-            self._vertex_to_index[tgt_vertex],
-        ):
+        for path in rx.all_simple_paths(self.graph, src_idx, tgt_idx):
             path_vertices = []
             for idx in path:
                 node_data = self.graph[idx]
