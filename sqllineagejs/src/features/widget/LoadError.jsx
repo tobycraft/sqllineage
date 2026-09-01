@@ -7,18 +7,16 @@ export function LoadError(props) {
   let Icon = props.info ? EmojiPeopleOutlinedIcon : ErrorOutlinedIcon;
   return (
     <Box
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
-      minHeight={props.minHeight}
+      sx={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: props.minHeight,
+      }}
     >
       <span>
         <Icon color="primary" fontSize="large" />
-        {props.message
-          ? props.message
-              .split("\n")
-              .map((line, idx) => <p key={idx}>{line}</p>)
-          : ""}
+        {props.message ? props.message.split("\n").map((line, idx) => <p key={idx}>{line}</p>) : ""}
       </span>
     </Box>
   );

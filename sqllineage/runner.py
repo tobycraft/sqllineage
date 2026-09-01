@@ -2,6 +2,7 @@ import logging
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable
+from functools import wraps
 from typing import Any
 
 from sqllineage import DEFAULT_DIALECT, SQLPARSE_DIALECT
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def lazy_method(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
         if not self._evaluated:

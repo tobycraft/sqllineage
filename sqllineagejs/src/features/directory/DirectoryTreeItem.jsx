@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Box, Typography } from "@mui/material";
 import { SimpleTreeView, TreeItem } from "@mui/x-tree-view";
 import FolderIcon from "@mui/icons-material/Folder";
@@ -6,34 +6,19 @@ import DescriptionIcon from "@mui/icons-material/Description";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
-import {
-  DirectoryAPI,
-  selectDirectory,
-  setOpenNonSQLWarning,
-} from "./directorySlice";
+import { DirectoryAPI, selectDirectory, setOpenNonSQLWarning } from "./directorySlice";
 
 export default function DirectoryTreeItem(props) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const directoryState = useSelector(selectDirectory);
   const [childNodes, setChildNodes] = React.useState(null);
-  const [expanded, setExpanded] = React.useState([]);
-
-  useEffect(() => {
-    if (props.is_root) {
-      setChildNodes(
-        (directoryState.content.children ?? []).map((node) => (
-          <DirectoryTreeItem
-            id={node.id}
-            name={node.name}
-            is_dir={node.is_dir}
-            is_root={false}
-          />
-        )),
-      );
-      setExpanded([props.id]);
-    }
-  }, [directoryState.content.children, props.id, props.is_root]);
+  const [expanded, setExpanded] = React.useState(() => (props.is_root ? [props.id] : []));
+  const rootChildNodes = props.is_root
+    ? (directoryState.content.children ?? []).map((node) => (
+        <DirectoryTreeItem id={node.id} name={node.name} is_dir={node.is_dir} is_root={false} />
+      ))
+    : null;
 
   const handleSelectionChange = () => {
     if (!props.is_dir) {
@@ -50,15 +35,13 @@ export default function DirectoryTreeItem(props) {
     setExpanded(nodes);
     if (expandingNodes[0]) {
       const childId = expandingNodes[0];
+      if (props.is_root && childId === props.id) {
+        return;
+      }
       DirectoryAPI({ d: childId }).then((result) =>
         setChildNodes(
           result.children.map((node) => (
-            <DirectoryTreeItem
-              id={node.id}
-              name={node.name}
-              is_dir={node.is_dir}
-              is_root={false}
-            />
+            <DirectoryTreeItem id={node.id} name={node.name} is_dir={node.is_dir} is_root={false} />
           )),
         ),
       );
@@ -89,26 +72,17 @@ export default function DirectoryTreeItem(props) {
             })}
           >
             {props.is_dir ? (
-              <FolderIcon
-                color="action"
-                sx={(theme) => ({ marginRight: theme.spacing(0.2) })}
-              />
+              <FolderIcon color="action" sx={(theme) => ({ marginRight: theme.spacing(0.2) })} />
             ) : (
-              <DescriptionIcon
-                color="action"
-                sx={(theme) => ({ marginRight: theme.spacing(0.2) })}
-              />
+              <DescriptionIcon color="action" sx={(theme) => ({ marginRight: theme.spacing(0.2) })} />
             )}
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: "inherit", flexGrow: 1 }}
-            >
+            <Typography variant="body2" sx={{ fontWeight: "inherit", flexGrow: 1 }}>
               {props.name}
             </Typography>
           </Box>
         }
       >
-        {props.is_dir && (childNodes || [<Box />])}
+        {props.is_dir && ((props.is_root ? rootChildNodes : childNodes) || [<Box />])}
       </TreeItem>
     </SimpleTreeView>
   );
